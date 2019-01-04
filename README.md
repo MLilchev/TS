@@ -1,4 +1,5 @@
 # README
+In collaboration with jakobfischer17
 
 The purpose of this application is to provide interesting insights on tornadoes
 in the US derived from raw data in the form of different visualisations.
