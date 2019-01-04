@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <style>
+    html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    }
+
+    #map { height: 70%; width: 100%; margin: 0; padding: 0; overflow: hidden; }
+  </style>
+    <body>
+      <br>
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-md">
+            <div id="map" ></div>
+          <h3>Tornados in <%= @state_raw[2]%></h3>
+          </div>
+        <div class="col-md">State Information. The green pointer show the begining of the tornado and the red pointer shows the end point
+          <table class="table">
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col">Name</th>
+              <th scope="col">Latitude</th>
+              <th scope="col">Longtitude</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row"></th>
+              <td><%= @state_no.name%></td>
+              <td><%= @state_no.lat%></td>
+              <td><%= @state_no.lon%></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+      <script>
+        function initMap() {
+
+          map = new google.maps.Map(document.getElementById('map'), {
+            center: {lat:<%= @state_raw[4]%> , lng: <%= @state_raw[5]%>},
+            zoom: 6,
+          });
+
+          var mapStyle = [{
+              'featureType': 'all',
+              'elementType': 'all',
+              'stylers': [{'visibility': 'off'}]
+            }, {
+              'featureType': 'landscape',
+              'elementType': 'geometry',
+              'stylers': [{'visibility': 'on'}, {'color': '#fcfcfc'}]
+            }, {
+              'featureType': 'water',
+              'elementType': 'labels',
+              'stylers': [{'visibility': 'off'}]
+            }, {
+              'featureType': 'water',
+              'elementType': 'geometry',
+              'stylers': [{'visibility': 'on'}, {'hue': '#5f94ff'}, {'lightness': 60}]
+            }];
+
+          <% @eventdata.each do |s| %>
+            var flightPlanCoordinates = [
+              {lat:<%= s.begin_lat %>, lng: <%= s.begin_lon %>},
+              {lat: <%= s.end_lat %>, lng: <%= s.end_lon %>}
+            ];
+            var flightPath = new google.maps.Polyline({
+              path: flightPlanCoordinates,
+              geodesic: true,
+              strokeColor: '#FF0000',
+              strokeOpacity: 1.0,
+              strokeWeight: 2
+            });
+            flightPath.setMap(map);
+            var begin_marker = new google.maps.Marker({
+             position: {lat: <%= s.begin_lat %>, lng: <%= s.begin_lon %>},
+             map: map,
+             icon: {
+      		   url: "/start.png",
+       		   scaledSize: new google.maps.Size(40, 40),
+             animation:google.maps.Animation.DROP
+            }});
+            var end_marker = new google.maps.Marker({
+              position: {lat: <%= s.end_lat %>, lng: <%= s.end_lon %>},
+              map: map,
+              icon: {
+              url: "/end.png",
+              scaledSize: new google.maps.Size(40, 40),
+              animation:google.maps.Animation.DROP
+            }});
+          <% end %>
+
+        map.data.loadGeoJson(
+          'https://raw.githubusercontent.com/python-visualization/folium/master/examples/data/us-states.json');
+        map.data.setStyle({
+          fillColor: 'grey',
+          strokeColor: 'blue',
+          strokeWeight: 1
+          });
+        }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCXw9tFp-fQLKJtwb4F3-BVDx4XQZbj8vk&callback=initMap">
+    </script>
+  </body>
+</html>

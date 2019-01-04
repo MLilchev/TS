@@ -1,0 +1,36 @@
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.js"></script>
+
+<a href="/eventdetails.json" class="btn btn-primary" role="button">Get list JSON</a>
+
+<div class="row pagination">
+  <table id="events" class="table table-md table-bordered border"> <!--class="table table-md table-bordered border">-->
+    <thead class="thead-light">
+        <tr>
+            <th class="text-center text-nowrap">Event ID</th>
+            <th class="text-center text-nowrap">Episode ID</th>
+            <th>Event Narrative</th>
+            <th>Time of Occurence</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% @rawnarrative.each do |narrative| %>
+          <tr>
+            <td class="text-center text-nowrap page-item"><%= narrative.event %></td>
+			      <td class="text-center text-nowrap page-item"><%= narrative.episode %></td>
+            <td class="page-item"><a href="/eventdetails/<%= narrative.id %>"><%= narrative.narrative %></a></td>
+            <td class="page-item"><%= narrative.begin_dt%></td>
+          </tr>
+        <% end %>
+
+    </tbody>
+    </table>
+</div>
+<br><br><br>
+<script>
+$(document).ready( function () {
+    $('#events').DataTable( {
+      stateSave: true
+    });
+
+} );
+</script>

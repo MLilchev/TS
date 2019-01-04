@@ -1,0 +1,23 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  EVENT_ID: 1
+  STATE: MyString
+  STATE_FIPS: 1
+  BEGIN_LOCATION: MyString
+  END_LOCATION: MyString
+  BEGIN_LAT: 1.5
+  BEGIN_LON: 1.5
+  END_LAT: 1.5
+  END_LON: 1.5
+
+two:
+  EVENT_ID: 1
+  STATE: MyString
+  STATE_FIPS: 1
+  BEGIN_LOCATION: MyString
+  END_LOCATION: MyString
+  BEGIN_LAT: 1.5
+  BEGIN_LON: 1.5
+  END_LAT: 1.5
+  END_LON: 1.5

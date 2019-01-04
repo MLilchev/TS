@@ -1,0 +1,53 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  event_id: 1
+  begin_ym: 1
+  begin_day: 1
+  begin_time: 1
+  end_ym: 1
+  end_day: 1
+  end_time: 1
+  year: 1
+  month: MyString
+  begin_dt: MyString
+  end_dt: MyString
+  damage: MyString
+  tor_f_scale: MyString
+  tor_length: 1.5
+  tor_width: 1
+  begin_loc: MyString
+  end_loc: MyString
+  begin_lat: 1.5
+  begin_lon: 
+  float: MyString
+  end_lon: 1.5
+  narrative: MyString
+  text: MyString
+  episode_no: 1
+
+two:
+  event_id: 1
+  begin_ym: 1
+  begin_day: 1
+  begin_time: 1
+  end_ym: 1
+  end_day: 1
+  end_time: 1
+  year: 1
+  month: MyString
+  begin_dt: MyString
+  end_dt: MyString
+  damage: MyString
+  tor_f_scale: MyString
+  tor_length: 1.5
+  tor_width: 1
+  begin_loc: MyString
+  end_loc: MyString
+  begin_lat: 1.5
+  begin_lon: 
+  float: MyString
+  end_lon: 1.5
+  narrative: MyString
+  text: MyString
+  episode_no: 1

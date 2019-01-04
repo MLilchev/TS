@@ -1,0 +1,2 @@
+class Geodatum < ApplicationRecord
+end

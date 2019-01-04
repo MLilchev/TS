@@ -1,0 +1,13 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+   episode_id: 1
+   fip: 1
+   narrative: MyText
+   state_id: 1
+
+two:
+   episode_id: 1
+   fip: 1
+   narrative: MyText
+   state_id: 1

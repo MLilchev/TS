@@ -1,0 +1,1463 @@
+﻿@{
+    ViewBag.Title = "Map";
+    Layout = "~/Views/Shared/_MapLayout.cshtml";
+}
+
+<div id="content-wrapper">
+    <div class="row">
+        <div id="filter-tools">
+            <form name="dataTheme">
+                <span class="radio-box">
+                    <input type="radio" name="dataThemes" value="child-benfits" onclick="renderSelect(this.value);"> Child Benefits
+                </span>
+                <span class="radio-box">
+                    <input type="radio" name="dataThemes" value="housing" onclick="renderSelect(this.value);"> Housing
+                </span>
+                <span class="radio-box">
+                    <input type="radio" name="dataThemes" value="population" onclick="renderSelect(this.value);"> Population
+                </span>
+                <span class="radio-box">
+                    <input type="radio" name="dataThemes" value="simd" onclick="renderSelect(this.value);"> SIMD
+                </span>
+
+            </form>
+            <select class="form-control" id="category_id" name="category" onchange="reloadPolygons(this.value)"></select>
+
+            <select class="form-control" id="subcategory" onchange="reloadPolygons($('#category_id option:selected').val(), this.value)"></select>
+        </div>
+    </div>
+    <div class="row">
+        <div id="map-wrapper" class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div id="controls" class="nicebox">
+                <div id="legend">
+                    <div id="census-min">min</div>
+                    <div class="color-key"><span id="data-caret">&#x25c6;</span></div>
+                    <div id="census-max">max</div>
+                </div>
+            </div>
+            <div id="data-box" class="nicebox">
+                <label id="data-label" for="data-value"></label>
+                <span id="data-value"></span>
+            </div>
+            <div id="map"></div>
+        </div>
+        <div id="side-bar" class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="tabs">
+                <ul class="tab-links">
+                    <li id="table" class="active"><a href="#tab1">Table</a></li>
+                    <li id="bar-chart"><a href="#tab2">Bar Chart</a></li>
+                    <li id="line-chart"><a href="#tab3">Line Chart</a></li>
+                    <li id="pie-chart"><a href="#tab4">Pie Chart</a></li>
+                </ul>
+
+                <div class="tab-content">
+                    <div id="tab1" class="tab active">
+                        <div id="tablediv">
+                            <h4 id="datazone-header"></h4>
+                            <div id="table-filter"></div>
+                            <table class="table table-bordered" id="myTable">
+                                <thead>
+                                </thead>
+                                <tbody id="tbodyid"></tbody>
+                            </table>
+                            <div id="myModal" class="modal">
+                                <div class="modal-content">
+                                    <span class="close">&times;</span>
+                                    <h4 id="modaltableheader"></h4>
+                                    <p>(Click on each title to sort the column)</p>
+                                    <table class="table table-bordered modaltable" id="modalTable">
+                                        <thead>
+                                        </thead>
+                                        <tbody id="modalTbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab2" class="tab">
+                        <div id="bar_chart_container"></div>
+                    </div>
+
+                    <div id="tab3" class="tab">
+                        <div id="line_chart_container"></div>
+                        <div id="options_group"></div>
+                    </div>
+                    <div id="tab4" class="tab">
+                        <div id="pie_chart_container"></div>
+                        <div id="radio_buttons"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@{
+    string originalPath = Request.Url.Scheme + "://" + Request.Url.Authority + Request.ApplicationPath.TrimEnd('/') + "/";
+}
+@section scripts
+{
+    <script>
+        var jsonObj = {};
+        var jsonLineChart = {};
+        var spinner = {};
+        var keys = [];
+        var title = "";
+        var min = 999999999;
+        var max = 0;
+        var line_chart;
+        var names = [];
+        var valuesArray = [];
+        
+
+    //loads the map
+    function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 57.149651, lng: -2.19 },
+        zoom: 11,
+            styles: [
+                {
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#f5f5f5"
+                        },
+                        {
+                            "visibility": "simplified"
+                        }
+                    ]
+                },
+                {
+                    "elementType": "labels.icon",
+                    "stylers": [
+                        {
+                            "visibility": "simplified"
+                        }
+                    ]
+                },
+                {
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#616161"
+                        }
+                    ]
+                },
+                {
+                    "elementType": "labels.text.stroke",
+                    "stylers": [
+                        {
+                            "color": "#f5f5f5"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "administrative.land_parcel",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#bdbdbd"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#eeeeee"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#757575"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi.park",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#e5e5e5"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi.park",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#9e9e9e"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#ffffff"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.arterial",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#757575"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.highway",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#dadada"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.highway",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#616161"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road.local",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#9e9e9e"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "transit.line",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#e5e5e5"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "transit.station",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#eeeeee"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "water",
+                    "elementType": "geometry",
+                    "stylers": [
+                        {
+                            "color": "#c9c9c9"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "water",
+                    "elementType": "labels.text.fill",
+                    "stylers": [
+                        {
+                            "color": "#9e9e9e"
+                        }
+                    ]
+                }
+            ]
+        });
+
+        map.data.setStyle(styleFeature);
+        map.data.addListener('mouseover', mouseInToRegion);
+        map.data.addListener('mouseout', mouseOutOfRegion);
+        map.data.addListener('click', clickedRegion);
+
+    }
+        //End initMap
+
+        //Load datazone polygons for SIMD
+    function loadMapShapesSimd(groupName, indexName = "Decile") {
+
+        var url = "/api/" + groupName;
+
+        $.ajax({
+                    url: url, success: function (result) {
+                        jsonObj = result;
+                        spinner.stop();
+                        var $subCategory = $("#subcategory");
+                        $subCategory.empty();
+                        $subCategory.append($("<option></option>")
+                            .attr("value", "Decile").text("Decile"));
+                        $subCategory.append($("<option></option>")
+                            .attr("value", "Quintile").text("Quintile"));
+
+                        var selection = document.getElementById("subcategory");
+                        selection.value = indexName;
+
+                        if (indexName == "Decile") {
+                            min = 1;
+                            max = 10;
+                        } else {
+                            min = 1;
+                            max = 5;
+                        }
+
+                        $('#census-min').text(max);
+                        $('#census-max').text(min);
+
+                        map.data.loadGeoJson("@originalPath" + 'CSV/Datazone_2016.json', { idPropertyName: 'CODE' });
+                        // wait for the request to complete by listening for the first feature to be
+                        // added
+                        var key = indexName + "Id";
+                        google.maps.event.addListener(map.data, 'addfeature', function (e) {
+                            jsonObject = jsonObj[e.feature.getProperty('DATAZONE')][0];
+                            value = jsonObject[key];
+                            name = e.feature.getProperty('NAME');
+                            e.feature.setProperty('value', value);
+                            e.feature.setProperty('name', name);
+                        });
+
+                        buildSidebarSimd(groupName, indexName);
+                   }
+                });
+    }
+        //End load dtazone polygons for simd
+
+        //Load datazone polygons
+        function loadMapShapes(tblname, colname = 'Total') {
+
+            //var selectedValue = '';
+            if (tblname != "notSelected") {
+
+                $.ajax({
+                    url: "/api/data" + "?tableName=" + tblname, success: function (result) {
+                        jsonObj = result;
+                        spinner.stop();
+                            var firstKey = Object.keys(jsonObj)[0];
+                            jsonObject = JSON.parse(jsonObj[firstKey]);
+                            keys = Object.keys(jsonObject);
+                            keys.splice(0, 1);
+                            var val = keys.indexOf("Total");
+                            keys.splice(val, 1);
+                            keys.unshift("Total");
+                            var $subCategory = $("#subcategory");
+                            $subCategory.empty(); // remove old options
+                            keys.forEach(function (key) {
+                                var keytext = key.replace(/(\d+)/g, function (_, num) {
+                                    return ' ' + num + ' ';
+                                });
+                                keytext = keytext.trim();
+                                $subCategory.append($("<option></option>")
+                                    .attr("value", key).text(keytext));
+                            });
+                            var selection = document.getElementById("subcategory");
+                            selection.value = colname;
+                            $("#subcategory option[value='notSelected']").remove();
+
+                        min = 99999999;
+                        max = 0;
+                        for (var element in jsonObj) {
+                            jsonObject = JSON.parse(jsonObj[element]);
+                            if (parseInt(jsonObject[colname.toLocaleString()]) < min) {
+                                min = parseInt(jsonObject[colname.toLocaleString()]);
+                            }
+                            if (parseInt(jsonObject[colname.toLocaleString()]) > max) {
+                                max = parseInt(jsonObject[colname.toLocaleString()]);
+                            }
+                            $('#census-min').text(min);
+                            $('#census-max').text(max);
+                        }
+
+                        map.data.loadGeoJson("@originalPath" + 'CSV/Datazone_2016.json', { idPropertyName: 'CODE' });
+                        // wait for the request to complete by listening for the first feature to be
+                        // added
+
+                        google.maps.event.addListener(map.data, 'addfeature', function (e) {
+                            jsonObject = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                            value = jsonObject[colname.toLocaleString()];
+                            name = e.feature.getProperty('NAME');
+                            e.feature.setProperty('value', value);
+                            e.feature.setProperty('name', name);
+                        });
+
+                   }
+                });
+            }
+
+        }
+        //End load dataZones polygons
+
+        //Clear polygons from map
+        function clearMap() {
+            jsonObj = {};
+            map.data.forEach(function (feature) {
+                    map.data.remove(feature);
+            });
+            google.maps.event.clearListeners(map.data, 'addfeature');
+        }
+
+        //Reload polygons on map
+        function reloadPolygons(value, colname) {
+            clearMap();
+            spinner = new Spinner().spin();
+            $("#map").append(spinner.el);
+            $("#table-filter").empty();
+            $('#map-wrapper').removeClass('col-lg-6').removeClass('col-md-6').addClass('col-lg-12').addClass('col-md-12');
+            $('#side-bar').removeClass('col-lg-6').removeClass('col-md-6').addClass('col-lg-12').addClass('col-md-12');
+            $('#side-bar').hide();
+            $("#tablediv").hide();
+
+            if (value == 'notSelected') {
+                $('#census-min').text('min');
+                $('#census-max').text('max');
+                var $subCategory = $("#subcategory");
+                $subCategory.empty(); // remove old options
+            }
+            else if (value == 'SimdChildBenefits' || value == 'SimdHousing' || value == 'SimdPopulation') {
+                loadMapShapesSimd(value, colname);
+            }
+            else {
+                loadMapShapes(value, colname);
+            }
+        }
+        //End reload polygons on map
+
+        //Color the polygons
+    function styleFeature(feature) {
+        var index = 1;
+        if ((max - min) < 500) {
+            index = 5;
+        } else if ((max - min) < 1000) {
+            index = 10;
+        } else {
+            index = 100;
+        }
+            var zeroColor = [88, 88, 88];
+            var low = [5, 69, 54];  // color of smallest datum
+            var high = [151, 83, 34];   // color of largest datum
+            var color = [];
+        if (feature.getProperty('value') == 0) {
+            color = zeroColor;
+        } else {
+            // delta represents where the value sits between the min and max
+            var delta = 0;
+            if (min == 0) {
+                delta = ((feature.getProperty('value') + 10 - min) / (max - min + 10)) * ((max - min + 10) / index);
+            } else {
+                if ($('input[name=dataThemes]:checked').val() == 'simd') {
+                    delta = ((feature.getProperty('value') - min) / (max - min));
+                }
+                else {
+                    delta = ((feature.getProperty('value') - min) / (max - min)) * ((max - min) / index);
+                }
+            }
+
+            for (var i = 0; i < 3; i++) {
+                // calculate an integer color based on the delta
+                if ($('input[name=dataThemes]:checked').val() == 'simd') {
+                    color[i] = (high[i] - low[i]) * delta + low[i];
+                } else {
+                    color[i] = (high[i] - low[i]) / delta + low[i];
+                }
+
+            }
+        }
+
+
+
+            var outlineWeight = 0.5, zIndex = 1;
+            if (feature.getProperty('state') === 'hover') {
+                outlineWeight = zIndex = 2;
+            }
+
+            return {
+                strokeWeight: outlineWeight,
+                strokeColor: '#fff',
+                zIndex: zIndex,
+                fillColor: 'hsl(' + color[0] + ',' + color[1] + '%,' + color[2] + '%)',
+                fillOpacity: 0.75,
+                visible: true
+            };
+    }
+        //End color the polygons
+
+            //Function for setting title
+
+            function setTitle(e) {
+                return [$('#category_id option:selected').text(), '<span class="strong">' + e.feature.getProperty('NAME').toLocaleString() + '</span>'].join(': ');
+            }
+
+            //end function for setting title
+
+            //Function populate table
+            function populateTable(e) {
+                var table = document.getElementById("myTable");
+                var tableRef = table.getElementsByTagName('tbody')[0];
+                $("#tbodyid").empty(); //empty the table body
+                $("#myTable thead").empty();
+
+                document.getElementById('datazone-header').innerHTML = setTitle(e);
+
+                if (getTableGroup() == "Children" || getTableGroup() == "Families" || getTableGroup() == "Population") {
+                    $("#myTable thead").append("<tr><th>Category</th> <th>Number</th> <th>Average for Aberdeen </th></tr>");
+                } else if (getTableGroup() == "Housing") {
+                    $("#myTable thead").append("<tr><th>Band</th> <th>Dwellings</th> <th>Charges</th> <th>Total Charges</th></tr>");
+                }
+
+                var chargesSum = 0;
+                var sum = 0;
+                var rowNum = 0;
+                var sumTotalTaxCharges = 0;
+                var jsonObject = {};
+
+                var val = keys.indexOf("Total");
+                keys.splice(val, 1);
+                keys.push("Total");
+                keys.forEach(function (key) {
+                    var row = tableRef.insertRow(rowNum);
+                    if (key == $('#subcategory option:selected').val()) {
+                        row.style.backgroundColor = '#f8dc3c';
+                    }
+                    var i = 0;
+                    var cell1 = row.insertCell(i);
+                    cell1.innerHTML = key.toLocaleString();
+                    i++;
+                    var oneObj = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    var cell2 = row.insertCell(i);
+                    cell2.innerHTML = oneObj[key.toLocaleString()];
+                    i++;
+
+                    //Add two different columns for housing which shows charges
+                    if (getTableGroup() == "Housing") {
+                        var selectText = $('#category_id option:selected').text();
+                        var arrayTaxCharges = [];
+                        if (selectText.includes("2014")) {
+                            arrayTaxCharges = [1089.90, 1271.55, 1453.20, 1634.85, 1998.15, 2361.45, 2724.75, 3269.70, 0];
+                        } else if (selectText.includes("2015")) {
+                            arrayTaxCharges = [1094.16, 1276.52, 1458.88, 1641.24, 2005.96, 2370.68, 2735.40, 3282.48, 0];
+                        } else if (selectText.includes("2016")) {
+                            arrayTaxCharges = [1098.48, 1281.56, 1464.64, 1647.72, 2013.88, 2380.04, 2746.20, 3295.44, 0];
+                        }
+                        var cellTaxCharges = row.insertCell(i);
+                        chargesSum += Math.round(arrayTaxCharges[rowNum]);
+                        cellTaxCharges.innerHTML = "£" + numeral(arrayTaxCharges[rowNum]).format('0,0');
+                        i++;
+                        if (rowNum == 8) {
+                            cellTaxCharges.innerHTML = "£" + numeral(chargesSum).format('0,0');
+                        }
+
+
+                        var cellTotalTaxCharges = row.insertCell(i);
+                        sumTotalTaxCharges += Math.round(cell2.innerHTML * arrayTaxCharges[rowNum]);
+                        cellTotalTaxCharges.innerHTML = "£" + numeral((cell2.innerHTML * arrayTaxCharges[rowNum])).format('0,0');
+                        i++;
+                        if (rowNum == 8) {
+                            cellTotalTaxCharges.innerHTML = "£" + numeral(sumTotalTaxCharges).format('0,0');
+                        }
+                    } else {
+                        var counter = 0;
+
+                        for (var element in jsonObj) {
+                            jsonObject = JSON.parse(jsonObj[element]);
+                            sum += parseInt(jsonObject[key.toLocaleString()]);
+                            counter++;
+                        }
+
+                        var average = sum / counter;
+                        var rounded = Math.round(average);
+                        var cell3 = row.insertCell(i);
+                        cell3.innerHTML = rounded.toLocaleString();
+                    }
+
+                    rowNum++;
+                    sum = 0;
+                });
+            }
+            //End function populate table
+
+            //Function Render Linechart CheckBoxes
+            function renderLinechartCheckBoxes() {
+                $('#options_group').empty();
+                var subselect = '';
+                var boxStatus = '';
+                keys.forEach(function (key) {
+                    if (key == $('#subcategory option:selected').val()) {
+                        subselect = 'checked';
+                        boxStatus = 'disabled';
+                    } else {
+                        subselect = '';
+                        boxStatus = '';
+                    }
+
+                    $('#options_group').append('<label class="checkbox-label"><input type="checkbox" name="optionsGroup[]" value=' + key + ' ' + subselect + ' ' + boxStatus + '>' + key + '</label>');
+                });
+
+                var optionsGroup = document.getElementsByName('optionsGroup[]');
+                for (var i = 0; i < optionsGroup.length; i++) {
+                    optionsGroup[i].onchange = populateLineChartWithCheckedValues;
+                }
+            }
+            //End Render Linechart Checkboxes
+
+
+            //Function for populating line chart with checked values
+            function populateLineChartWithCheckedValues() {
+                if (this.checked) {
+                    var years = [];
+                    var newvaluesForYears = [];
+                    years = Object.keys(jsonLineChart);
+
+                    for (var i = 0; i < years.length; i++) {
+                        var yearData = JSON.parse(jsonLineChart[years[i]]);
+                        newvaluesForYears.push(parseInt(yearData[this.value]));
+                    }
+                    line_chart.xAxis[0].setCategories(years, false);
+
+                    line_chart.addSeries({
+                        id: this.value,
+                        name: this.value,
+                        data: newvaluesForYears
+                    }, false);
+
+                    line_chart.redraw();
+                }
+                else {
+                    line_chart.get(this.value).remove();
+                    line_chart.redraw();
+                }
+            }
+
+            //End of function for populating line chart with checked values
+
+
+
+            //Function for populating line chart data
+            function populateLineChart(groupName, e) {
+                $.ajax({
+                    url: "/api/data" + "?groupName=" + groupName + "&dataZoneId=" + e.feature.getProperty("DATAZONE"), success: function (result) {
+                        jsonLineChart = result;
+                        var years = [];
+                        var valuesForYears = [];
+                        years = Object.keys(jsonLineChart);
+
+
+                        for (var i = 0; i < years.length; i++) {
+                            var yearData = JSON.parse(jsonLineChart[years[i]]);
+                            valuesForYears.push(parseInt(yearData[$('#subcategory option:selected').val()]));
+                        }
+
+                        renderLinechartCheckBoxes();
+
+
+
+                        line_chart = Highcharts.chart('line_chart_container', {
+                            chart: {
+                                type: 'line'
+                            },
+                            title: {
+                                text: 'Line chart: ' + setTitle(e)
+                            },
+
+                            xAxis: {
+                                categories: years
+                            },
+                            credits: {
+                                enabled: false
+                            },
+                            series: [{
+                                name: $('#subcategory option:selected').text(),
+                                data: valuesForYears
+                            }]
+                        });
+                    }
+                });
+            }
+
+        //End of function for populating line chart data
+
+        //Function populate barchart
+            function populateBarchart(e) {
+                setTitle(e);
+
+                var sumChart = 0;
+                var averages = [];
+                var values = [];
+                var names = [];
+
+                keys.forEach(function (key) {
+                    var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    names.push(key.toLocaleString());
+                    values.push(jsonParsing[key.toLocaleString()]);
+                    var counter = 0;
+                    for (var element in jsonObj) {
+                        jsonObject = JSON.parse(jsonObj[element]);
+                        sumChart += parseInt(jsonObject[key.toLocaleString()]);
+                        counter++;
+                    }
+                    var averageChart = sumChart / counter;
+                    var roundedAverage = Math.round(averageChart);
+                    averages.push(roundedAverage);
+                    sumChart = 0;
+                });
+
+                var chart = Highcharts.chart('bar_chart_container', {
+
+                    title: {
+                        text: 'Bar chart: ' + setTitle(e)
+                    },
+
+                    xAxis: {
+                        categories: names
+                    },
+                    credits: {
+                        enabled: false
+                    },
+                    series: [{
+                        name: 'Value',
+                        type: 'column',
+                        colorByPoint: true,
+                        data: values,
+                        dataLabels: {
+                            enabled: true
+                        },
+                        showInLegend: false
+                    },
+                    {
+                        name: 'Average for Aberdeen',
+                        type: 'column',
+                        color: '#483D8B',
+                        dataLabels: {
+                            enabled: true
+                        },
+                        data: averages
+                    }
+                    ]
+
+                });
+            }
+        //End function populate barchart
+
+    //Function for populating data for the clicked polygon
+    function populatePieChartDataChecked(e) {
+        keys.forEach(function (key) {
+            var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+            if ($("input:radio[name=pie]:checked").prop('id') == 'Gender') {
+                if (key == 'Boys' || key == 'Girls') {
+                    valuesArray.push([key]);
+                    names.push(parseInt(jsonParsing[key]));
+                }
+            }
+            else if ($("input:radio[name=pie]:checked").prop('id') == 'Age') {
+                if (key == 'Children0To5' || key == 'Children5To10' || key == 'Children11To15' || key == 'Children16To19') {
+                    valuesArray.push([key]);
+                    names.push(parseInt(jsonParsing[key]));
+                }
+            }
+        });
+
+        for (var i = 0; i < names.length; i++) {
+            valuesArray[i].push(names[i]);
+        }
+
+        populatePieChart(e);
+        names = [];
+        valuesArray = [];
+    }
+    //End of function for populating data for the clicked polygon
+
+    //Start function for populating pie chart data
+    function populatePieChartData(e) {
+
+        var names = [];
+        var total = 0;
+        setTitle(e);
+        var groupName = getTableGroup();
+        if (groupName == "Children" && $('#subcategory option:selected').val() == 'Total') {
+            renderRadioButtons();
+            populatePieChartDataChecked(e);
+
+            //populating data when you change radio button
+            $('input[type=radio][name=pie]').on('change', function () {
+                populatePieChartDataChecked(e);
+
+            });
+        }
+        else if (groupName == "Children" && $('#subcategory option:selected').val() != 'Total') {
+            $('#radio_buttons').empty();
+            if ($('#subcategory option:selected').val() == 'Boys' || $('#subcategory option:selected').val() == 'Girls') {
+                keys.forEach(function (key) {
+                    var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    if (key == 'Boys' || key == 'Girls') {
+                        valuesArray.push([key]);
+                        names.push(parseInt(jsonParsing[key]));
+                    }
+                });
+            }
+            else if ($('#subcategory option:selected').val() == 'Children0To5' || $('#subcategory option:selected').val() == 'Children5To10' || $('#subcategory option:selected').val() == 'Children11To15' || $('#subcategory option:selected').val() == 'Children16To19') {
+                keys.forEach(function (key) {
+                    var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    if (key == $('#subcategory option:selected').val()) {
+                        valuesArray.push([key]);
+                        names.push(parseInt(jsonParsing[key]));
+                    }
+                    if (key == "Total") {
+                        total = parseInt(jsonParsing[key]);
+                    }
+                });
+                valuesArray.push(["Other"]);
+                var others = total - names[0];
+                names.push(others);
+            }
+        }
+        else if (groupName != "Children") {
+
+            $('#radio_buttons').empty();
+            if ($('#subcategory option:selected').val() == 'Total') {
+                keys.forEach(function (key) {
+                    var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    if (key != 'Total') {
+                        valuesArray.push([key]);
+                        names.push(parseInt(jsonParsing[key]));
+                    }
+                });
+            }
+            else {
+                keys.forEach(function (key) {
+                    var jsonParsing = JSON.parse(jsonObj[e.feature.getProperty('DATAZONE')]);
+                    if (key == $('#subcategory option:selected').val()) {
+                        valuesArray.push([key]);
+                        names.push(parseInt(jsonParsing[key]));
+                    }
+                    if (key == "Total") {
+                        total = parseInt(jsonParsing[key]);
+                    }
+                });
+                valuesArray.push(["Other"]);
+                var others = total - names[0];
+                names.push(others);
+            }
+        }
+        for (var i = 0; i < names.length; i++) {
+            valuesArray[i].push(names[i]);
+        }
+        if (groupName == "Children" && $('#subcategory option:selected').val() == 'Total') {
+            names = [];
+            valuesArray = [];
+        }
+        else {
+            populatePieChart(e);
+            names = [];
+            valuesArray = [];
+        }
+
+
+    }
+        //End function populate pie chart data
+
+
+        // Start function populate piechart
+        function populatePieChart(e) {
+                var pieChart = Highcharts.chart('pie_chart_container', {
+                    chart: {
+                        plotBackgroundColor: null,
+                        plotBorderWidth: null,
+                        plotShadow: false,
+                        type: 'pie'
+                    },
+                    title: {
+                        text: 'Pie chart: ' + setTitle(e)
+                    },
+                    tooltip: {
+                        pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+                    },
+                    plotOptions: {
+                        pie: {
+                            allowPointSelect: true,
+                            cursor: 'pointer',
+                            dataLabels: {
+                                enabled: true,
+                                format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                                style: {
+                                    color: (Highcharts.theme && Highcharts.theme.contrastTextColor) || 'black'
+                                }
+                            },
+                            showInLegend: true
+                        }
+                    },
+                    credits: {
+                        enabled: false
+                    },
+                    series: [{
+                        name: 'Percentage',
+                        colorByPoint: true,
+                        data: valuesArray,
+                        colors: ['#7FFF00', '#DC143C', '#00BFFF', '#FFA500', '#DDA0DD']
+                    }]
+                });
+        }
+
+        // End function populate piechart
+
+        // Start radio buttons function for pie chart
+        function renderRadioButtons() {
+                $('#radio_buttons').empty();
+                $('#radio_buttons').append('<input type="radio" id="Gender" name="pie" checked/> <label>Gender</label>');
+                $('#radio_buttons').append('<input type="radio" id="Age" name="pie"/> <label>Age</label>');
+            }
+        // End radio buttons function for pie chart
+
+
+        //Function for populating simdTable
+    function populateSimdTable(value, colname) {
+
+        var upperBound = 0;
+        if (colname == "Decile") {
+            upperBound = 10;
+        } else if (colname == "Quintile") {
+            upperBound = 5;
+        }
+
+        $("#table-filter").empty();
+        $("#myTable thead").empty();
+        $("#tbodyid").empty();
+        $("#datazone-header").empty();
+        $("#datazone-header").append($("#category_id").find(":selected").text() + " by " + colname);
+
+        if (value == 'SimdPopulation') {
+            $("#myTable thead").append("<tr><th>"+ colname + "</th> <th>Population 2014</th> <th>Population 2015</th> <th>Population 2016</th></tr>");
+            var pop2014 = 0;
+            var pop2015 = 0;
+            var pop2016 = 0;
+
+            for (var i = 1; i <= upperBound; i++) {
+                jQuery.each(jsonObj, function (key, val) {
+
+                    if (parseInt(val[0][colname + "Id"]) == i) {
+                        pop2014 += parseInt(val[0]["Total2014"]);
+                        pop2015 += parseInt(val[0]["Total2015"]);
+                        pop2016 += parseInt(val[0]["Total2016"]);
+                    }
+                });
+
+                $("#myTable tbody").append("<tr><td>" + i + "</td><td>" + pop2014 + "</td><td>" + pop2015 + "</td><td>" + pop2016 + "</td></tr>");
+                pop2014 = 0;
+                pop2015 = 0;
+                pop2016 = 0;
+            }
+        }
+        else if (value == 'SimdHousing') {
+
+            $("#myTable thead").append("<tr><th>Band</th><th> Number of dwelings </th><th> Tax income </th></tr>");
+            $("#table-filter").append('<form name="yearFilter"><span class="simd-filters"><input type="radio" name="yearFilters" value="2016" onclick="getSimdHousingByYear(this.value,' + '\'' + colname + '\'' + ');" checked="checked"/>2016</span><span class="simd-filters"><input type="radio" name="yearFilters" value="2015" onclick="getSimdHousingByYear(this.value,' + '\'' + colname + '\'' + ');"/>2015</span><span class="simd-filters"><input type="radio" name="yearFilters" value="2014" onclick="getSimdHousingByYear(this.value,' + '\'' + colname + '\'' + '); "/>2014</span></form>');
+            $("#table-filter").append('<form name="indexFilter">');
+            for (var i = 1; i <= upperBound; i++) {
+                if (i == 1) {
+                    $("#table-filter").append('<span class="simd-filters"><input type="radio" name="indexFilters" value="' + i + '" onclick="getSimdHousingByIndex(this.value,' + '\'' + colname + '\'' + ');" checked="checked">' + i + '</span>');
+                } else {
+                    $("#table-filter").append('<span class="simd-filters"><input type="radio" name="indexFilters" value="' + i + '" onclick="getSimdHousingByIndex(this.value,' + '\'' + colname + '\'' + ');">' + i + '</span>');
+                }
+            }
+            var selectedIndex = $("input[name='indexFilters']:checked").val();
+            $("#table-filter").append('</form>');
+
+            getSimdHousing($("input[name='yearFilters']:checked").val(), $("input[name='indexFilters']:checked").val(), colname);
+
+        }
+        else if (value == 'SimdChildBenefits2015') {
+            var children = 0;
+            var population = 0;
+
+            $("#table-filter").append('<form name="tableFilter"><span class="simd-filters"><input type="radio" name="tableFilters" value="SimdChildBenefits" onclick="populateSimdTable(this.value,' + '\'' + colname + '\'' + ');"> 2016 </span><span class="simd-filters"><input type="radio" name="tableFilters" value="SimdChildBenefits2015" onclick="populateSimdTable(this.value,' + '\'' + colname + '\'' + ');" checked="checked"> 2015 </span></form>');
+
+
+            $("#myTable thead").append("<tr><th>" + colname + "</th> <th>Total Number of Children</th> <th>Total Population</th> <th>Children % of Population</th></tr>");
+            for (var i = 1; i <= upperBound; i++) {
+                jQuery.each(jsonObj, function (key, val) {
+                    if (parseInt(val[0][colname + "Id"]) == i) {
+                        children += parseInt(val[0]["Children2015"]);
+                        population += parseInt(val[0]["Population2015"]);
+                    }
+                });
+
+                $("#myTable tbody").append("<tr><td>" + i + "</td><td>" + children + "</td><td>" + population + "</td><td>" + Math.round((children / population) * 100) + "%" + "</td></tr>");
+                children = 0;
+                population = 0;
+            }
+        }
+        else if (value == 'SimdChildBenefits') {
+            var children = 0;
+            var population = 0;
+
+            $("#table-filter").append('<form name="tableFilter"><span class="simd-filters"><input type="radio" name="tableFilters" value="SimdChildBenefits" onclick="populateSimdTable(this.value,' + '\'' + colname + '\'' + '); " checked="checked"> 2016 </span><span class="simd-filters"><input type="radio" name="tableFilters" value="SimdChildBenefits2015" onclick="populateSimdTable(this.value,' + '\'' + colname + '\'' + ');"> 2015 </span></form>');
+
+            $("#myTable thead").append("<tr><th>" + colname + "</th> <th>Total Number of Children</th> <th>Total Population</th> <th>Children % of Population</th></tr>");
+            for (var i = 1; i <= upperBound; i++) {
+                jQuery.each(jsonObj, function (key, val) {
+                    if (parseInt(val[0][colname + "Id"]) == i) {
+                        children += parseInt(val[0]["Children2016"]);
+                        population += parseInt(val[0]["Population2016"]);
+                    }
+                });
+
+                $("#myTable tbody").append("<tr><td>" + i + "</td><td>" + children + "</td><td>" + population + "</td><td>" + Math.round((children / population) * 100) + "%" + "</td></tr>");
+                children = 0;
+                population = 0;
+            }
+        }
+        if (value != 'SimdHousing') {
+            $('#myTable > tbody  > tr > td:first-child').each(function () {
+                $(this).css("cursor", "pointer");
+                $(this).css("text-decoration", "underline");
+                $(this).on("click", function () {
+                    showModal(value, colname, $(this).text());
+                });
+            });
+        }
+
+    }
+    // End function populate SIMD table
+
+    // Get Simd Housing By Year
+    function getSimdHousingByYear(year, indexName) {
+        getSimdHousing(year, $("input[name='indexFilters']:checked").val(), indexName);
+    }
+    // End Get Simd Housing By Year
+
+    //Get Simd Housing By Index
+    function getSimdHousingByIndex(index, indexName) {
+        getSimdHousing($("input[name='yearFilters']:checked").val(), index, indexName);
+    }
+    //End Get Simd Housing By Index
+
+    //Get SIMD Housing Data for year and Decile or Quintile
+    function getSimdHousing(year, index, indexName) {
+        var arrayTaxCharges = [];
+
+        var taxCharges2014 = { "bandA": 1089.90, "bandB": 1271.55, "bandC": 1453.20, "bandD": 1634.85, "bandE": 1998.15, "bandF": 2361.45, "bandG": 2724.75, "bandH": 3269.70};
+        var taxCharges2015 = { "bandA": 1094.16, "bandB": 1276.52, "bandC": 1458.88, "bandD": 1641.24, "bandE": 2005.96, "bandF": 2370.68, "bandG": 2735.40, "bandH": 3282.48 };
+        var taxCharges2016 = { "bandA": 1098.48, "bandB": 1281.56, "bandC": 1464.64, "bandD": 1647.72, "bandE": 2013.88, "bandF": 2380.04, "bandG": 2746.20, "bandH": 3295.44 };
+        var taxCharges = {};
+        $("#myTable tbody").empty();
+        var tempObj = {};
+        var bandA = 0;
+        var bandB = 0;
+        var bandC = 0;
+        var bandD = 0;
+        var bandE = 0;
+        var bandF = 0;
+        var bandG = 0;
+        var bandH = 0;
+        if (year == "2016") {
+            taxCharges = taxCharges2016;
+            jQuery.each(jsonObj, function (key, val) {
+                if (parseInt(val[0][indexName + "Id"]) == parseInt(index)) {
+                    bandA += parseInt(val[0]["BandA16"]);
+                    bandB += parseInt(val[0]["BandB16"]);
+                    bandC += parseInt(val[0]["BandC16"]);
+                    bandD += parseInt(val[0]["BandD16"]);
+                    bandE += parseInt(val[0]["BandE16"]);
+                    bandF += parseInt(val[0]["BandF16"]);
+                    bandG += parseInt(val[0]["BandG16"]);
+                    bandH += parseInt(val[0]["BandH16"]);
+                }
+            });
+        } else if (year == "2015") {
+            taxCharges = taxCharges2016;
+            jQuery.each(jsonObj, function (key, val) {
+                if (parseInt(val[0][indexName + "Id"]) == parseInt(index)) {
+                    bandA += parseInt(val[0]["BandA15"]);
+                    bandB += parseInt(val[0]["BandB15"]);
+                    bandC += parseInt(val[0]["BandC15"]);
+                    bandD += parseInt(val[0]["BandD15"]);
+                    bandE += parseInt(val[0]["BandE15"]);
+                    bandF += parseInt(val[0]["BandF15"]);
+                    bandG += parseInt(val[0]["BandG15"]);
+                    bandH += parseInt(val[0]["BandH15"]);
+                }
+            });
+        } else if (year == "2014") {
+            taxCharges = taxCharges2016;
+            jQuery.each(jsonObj, function (key, val) {
+                if (parseInt(val[0][indexName + "Id"]) == parseInt(index)) {
+                    bandA += parseInt(val[0]["BandA14"]);
+                    bandB += parseInt(val[0]["BandB14"]);
+                    bandC += parseInt(val[0]["BandC14"]);
+                    bandD += parseInt(val[0]["BandD14"]);
+                    bandE += parseInt(val[0]["BandE14"]);
+                    bandF += parseInt(val[0]["BandF14"]);
+                    bandG += parseInt(val[0]["BandG14"]);
+                    bandH += parseInt(val[0]["BandH14"]);
+                }
+            });
+        }
+        tempObj.bandA = bandA;
+        tempObj.bandB = bandB;
+        tempObj.bandC = bandC;
+        tempObj.bandD = bandD;
+        tempObj.bandE = bandE;
+        tempObj.bandF = bandF;
+        tempObj.bandG = bandG;
+        tempObj.bandH = bandH;
+        jQuery.each(tempObj, function (key, val) {
+            $("#myTable tbody").append("<tr><td>" + key + "</td><td>" + val + "</td><td>&#163;" + numeral(val * taxCharges[key]).format('0,0') + "</td></tr>");
+        });
+    }
+    //End of Get SIMD data for Housing
+
+    //Function for showing modal
+    function showModal(groupName, range, rangeValue) {
+        // Get the modal
+        var modal = document.getElementById('myModal');
+
+        // Get the <span> element that closes the modal
+        var span = document.getElementsByClassName("close")[0];
+
+        modal.style.display = "block";
+        var datazoneName = "";
+        $("#modalTable thead").empty();
+        $('#modalTbody').empty();
+
+        if (groupName == 'SimdPopulation') {
+            document.getElementById('modaltableheader').textContent = "Table with datazones and populations for SIMD range " + range + ": " + rangeValue;
+            var pop2014 = 0;
+            var pop2015 = 0;
+            var pop2016 = 0;
+
+            $("#modalTable thead").append("<tr><th onclick='sortTable(false, 0)'>DataZone</th> <th onclick='sortTable(true, 1)'>Population 2014</th> <th onclick='sortTable(true, 2)'>Population 2015</th> <th onclick='sortTable(true, 3)'>Population 2016</th></tr>");
+
+            jQuery.each(jsonObj, function (key, val) {
+
+                if (parseInt(val[0][range + "Id"]) == rangeValue) {
+                    datazoneName = val[0]["DatazoneName"];
+                    pop2014 = parseInt(val[0]["Total2014"]);
+                    pop2015 = parseInt(val[0]["Total2015"]);
+                    pop2016 = parseInt(val[0]["Total2016"]);
+                    $("#modalTable tbody").append("<tr><td>" + datazoneName + "</td><td>" + pop2014 + "</td><td>" + pop2015 + "</td><td>" + pop2016 + "</td></tr>");
+                }
+            });
+        }
+        else if (groupName == 'SimdChildBenefits') {
+            document.getElementById('modaltableheader').textContent = "Table with datazones and total number of children, total population and children % of population for 2016 for SIMD range " + range + ": " + rangeValue;
+            var children = 0;
+            var population = 0;
+            $("#modalTable thead").append("<tr><th onclick='sortTable(false, 0)'>DataZone</th> <th onclick='sortTable(true, 1)'>Total number of children</th> <th onclick='sortTable(true, 2)'>Total Population</th> <th onclick='sortTable(true, 3)'>Children % of Population</th></tr>");
+            jQuery.each(jsonObj, function (key, val) {
+
+                if (parseInt(val[0][range + "Id"]) == rangeValue) {
+                    datazoneName = val[0]["DatazoneName"];
+                    children = parseInt(val[0]["Children2016"]);
+                    population = parseInt(val[0]["Population2016"]);
+                    $("#modalTable tbody").append("<tr><td>" + datazoneName + "</td><td>" + children + "</td><td>" + population + "</td><td>" + Math.round((children / population) * 100) + "</td></tr>");
+
+                }
+            });
+        }
+        else if (groupName == 'SimdChildBenefits2015') {
+            document.getElementById('modaltableheader').textContent = "Table with datazones and total number of children, total population and children % of population for 2015 for SIMD range " + range + ": " + rangeValue;
+            var children = 0;
+            var population = 0;
+            $("#modalTable thead").append("<tr><th onclick='sortTable(false, 0)'>DataZone</th> <th onclick='sortTable(true, 1)'>Total number of children</th> <th onclick='sortTable(true, 2)'>Total Population</th> <th onclick='sortTable(true, 3)'>Children % of Population</th></tr>");
+            jQuery.each(jsonObj, function (key, val) {
+
+                if (parseInt(val[0][range + "Id"]) == rangeValue) {
+                    datazoneName = val[0]["DatazoneName"];
+                    children = parseInt(val[0]["Children2015"]);
+                    population = parseInt(val[0]["Population2015"]);
+                    $("#modalTable tbody").append("<tr><td>" + datazoneName + "</td><td>" + children + "</td><td>" + population + "</td><td>" + Math.round((children / population) * 100) + "</td></tr>");
+
+                }
+            });
+        }
+        // When the user clicks on <span> (x), close the modal
+        span.onclick = function () {
+            modal.style.display = "none";
+        }
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    }
+    //End of function for showing modal
+
+
+    //Function for sorting modal table
+    function sortTable(isNumber, n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("modalTable");
+        switching = true;
+        // Set the sorting direction to ascending:
+        dir = "asc";
+        /* Make a loop that will continue until
+        no switching has been done: */
+        while (switching) {
+            // Start by saying: no switching is done:
+            switching = false;
+            rows = table.getElementsByTagName("TR");
+            /* Loop through all table rows (except the
+            first, which contains table headers): */
+            for (i = 1; i < (rows.length - 1); i++) {
+                // Start by saying there should be no switching:
+                shouldSwitch = false;
+                /* Get the two elements you want to compare,
+                one from current row and one from the next: */
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                /* Check if the two rows should switch place,
+                based on the direction, asc or desc: */
+                if (dir == "asc") {
+                    if (isNumber == false) {
+                        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                            // If so, mark as a switch and break the loop:
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                    else {
+                        if (parseInt(x.innerHTML) > parseInt(y.innerHTML)) {
+                            // If so, mark as a switch and break the loop:
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                } else if (dir == "desc") {
+                    if (isNumber == false) {
+                        if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                            // If so, mark as a switch and break the loop:
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                    else {
+                        if (parseInt(x.innerHTML) < parseInt(y.innerHTML)) {
+                            // If so, mark as a switch and break the loop:
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                /* If a switch has been marked, make the switch
+                and mark that a switch has been done: */
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                // Each time a switch is done, increase this count by 1:
+                switchcount++;
+            } else {
+                /* If no switching has been done AND the direction is "asc",
+                set the direction to "desc" and run the while loop again. */
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+
+        //Function scale Map
+        function scaleMap() {
+            $('#map-wrapper').removeClass('col-lg-12').removeClass('col-md-12').addClass('col-lg-6').addClass('col-md-6');
+            $('#side-bar').removeClass('col-lg-12').removeClass('col-md-12').addClass('col-lg-6').addClass('col-md-6');
+            $('#side-bar').show();
+            $("#tablediv").show();
+        }
+        //End function scale map
+
+        //Function unscale Map
+        function unscaleMap() {
+            $('#map-wrapper').removeClass('col-lg-6').removeClass('col-md-6').addClass('col-lg-12').addClass('col-md-12');
+            $('#side-bar').removeClass('col-lg-6').removeClass('col-md-6').addClass('col-lg-12').addClass('col-md-12');
+            $('#side-bar').hide();
+            $("#tablediv").hide();
+            $('#census-min').text('min');
+            $('#census-max').text('max');
+            var $subCategory = $("#subcategory");
+            $subCategory.empty(); // remove old options
+            $subCategory.append('<option value="notSelected">Select Subcategory</option>');
+        }
+        //End of function unscale map
+
+        //Funciton getTableGroup
+            function getTableGroup() {
+                var selectText = $('#category_id option:selected').text();
+                if (selectText.includes("Children")) {
+                    return "Children";
+                } else if (selectText.includes("Families")) {
+                    return "Families";
+                } else if (selectText.includes("Population")) {
+                    return "Population";
+                } else if (selectText.includes("Council Tax")) {
+                    return "Housing";
+                }
+            }
+
+        //End getTableGroup
+
+        // Start function build sidebar
+
+        function buildSideBar(e) {
+            scaleMap();
+            $("li#bar-chart").css("visibility", "visible");
+            $("li#line-chart").css("visibility", "visible");
+            $("li#pie-chart").css("visibility", "visible");
+            if ($('input[name=dataThemes]:checked').val() == 'child-benfits' || $('input[name=dataThemes]:checked').val() == 'population') {
+                populateTable(e);
+                populateBarchart(e);
+                populateLineChart(getTableGroup(), e);
+                populatePieChartData(e);
+            }
+            else if ($('input[name=dataThemes]:checked').val() == 'housing') {
+                populateTable(e);
+                populateBarchart(e);
+                populateLineChart(getTableGroup(), e);
+                $("li#pie-chart").css("visibility", "hidden");
+            }
+            else if ($('input[name=dataThemes]:checked').val() == 'simd') {
+                $("li#bar-chart").css("visibility", "hidden");
+                $("li#line-chart").css("visibility", "hidden");
+                $("li#pie-chart").css("visibility", "hidden");
+
+            }
+        }
+
+        // End function build sidebar
+
+        //Start function build sidebar for SIMD
+    function buildSidebarSimd(value, colname) {
+        scaleMap();
+
+        populateSimdTable(value, colname);
+        $("li#bar-chart").css("visibility", "hidden");
+        $("li#line-chart").css("visibility", "hidden");
+        $("li#pie-chart").css("visibility", "hidden");
+    }
+
+
+        // End function build sidebar for SIMD
+
+        //Polygons onclick callback
+    function clickedRegion(e) {
+        buildSideBar(e);
+        }
+        //End polygons onclick callback
+
+        //Polygons onhover callback
+        function mouseInToRegion(e) {
+            e.feature.setProperty('state', 'hover');
+
+            //var percent = (e.feature.getProperty('value') - min) /
+            //    (max - min) * 100;
+
+            document.getElementById('data-label').textContent =
+                e.feature.getProperty('name');
+            document.getElementById('data-value').textContent =
+                e.feature.getProperty('value').toLocaleString();
+
+            /*
+            document.getElementById('data-caret').style.display = 'block';
+            document.getElementById('data-caret').style.paddingLeft = percent + '%';
+            */
+
+        }
+        //End Polygons onhover callback
+
+        //Polygons onmouseout callback
+        function mouseOutOfRegion(e) {
+            e.feature.setProperty('state', 'normal');
+            document.getElementById('data-caret').style.display = 'none';
+            document.getElementById('data-caret').style.paddingLeft = '0';
+            document.getElementById('data-label').textContent = '';
+            document.getElementById('data-value').textContent = '';
+        }
+        //End Polygons onmouseout callback
+
+        //On document load
+    jQuery(document).ready(function () {
+        $('#side-bar').hide();
+        $("#tablediv").hide();
+        $("input[name=dataThemes][value=" + "@ViewBag.Theme" + "]").attr('checked', 'checked');
+        renderSelect("@ViewBag.Theme", true);
+                jQuery('.tabs .tab-links a').on('click', function (e) {
+                    var currentAttrValue = jQuery(this).attr('href');
+
+                    // Show/Hide Tabs
+                    jQuery('.tabs ' + currentAttrValue).slideDown(400).siblings().slideUp(400);
+
+                    // Change/remove current tab to active
+                    jQuery(this).parent('li').addClass('active').siblings().removeClass('active');
+
+                    e.preventDefault();
+
+                });
+
+            });
+         //End on document load
+
+
+        //Assign Callback Function for OnClick event on data-theme radio buttons
+    function renderSelect(value, initial) {
+        if (!initial) {
+         clearMap();
+         unscaleMap();
+        }
+
+        //For showing as default the table tab
+        $("li#table").addClass('active').siblings().removeClass('active');
+        $('.tabs #tab1').slideDown(400).siblings().slideUp(400);
+
+        if (value == 'child-benfits') {
+            $('#category_id')
+                .empty()
+                .append(
+                    '<option value = "notSelected" > Select Dataset </option ><option value="Children2015ChildBenefit" > 2015 Child Benefits(Num of Children)</option ><option value="Children2016ChildBenefit">2016 Child Benefits (Num of Children)</option><option value="Children2017ChildBenefit">2017 Child Benefits (Num of Children)</option><option value="Families2015ChildBenefit">2015 Child Benefits (Num of Families)</option><option value="Families2017ChildBenefit">2017 Child Benefits (Num of Families)</option>');
+        }
+        else if (value == 'housing') {
+            $('#category_id')
+                .empty()
+                .append(
+                    '<option value = "notSelected" > Select Dataset </option ><option value="Council2014Tax">2014 Council Tax</option><option value="Council2015Tax">2015 Council Tax</option><option value="Council2016Tax">2016 Council Tax</option>');
+
+        }
+        else if (value == 'population') {
+            $('#category_id')
+                .empty()
+                .append(
+                    '<option value="notSelected" > Select Dataset </option ><option value = "Population2011Year" >2011 Population</option><option value="Population2012Year">2012 Population</option><option value="Population2013Year">2013 Population</option><option value="Population2014Year">2014 Population</option><option value="Population2015Year">2015 Population</option><option value = "Population2016Year" >2016 Population</option>'
+                );
+        }
+        else if (value == 'simd') {
+            var $category = $("#category_id");
+            $category.empty();
+            $category.append($("<option></option>")
+                .attr("value", "notSelected").text("Select Dataset"));
+            $category.append($("<option></option>")
+                .attr("value", "SimdChildBenefits").text("Child Benefits"));
+            $category.append($("<option></option>")
+                .attr("value", "SimdPopulation").text("Population"));
+            $category.append($("<option></option>")
+                .attr("value", "SimdHousing").text("Housing"));
+        }
+
+    }
+
+    </script>
+
+    <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBg299oHS0oMVGpAQ9bym65s8aIsFSkzq8&callback=initMap">
+    </script>
+}
